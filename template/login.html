@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+</head>
+<body>
+    <h1>Login</h1>
+    <form>
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" required>
+        <br>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required>
+        <br>
+        <button type="submit">Login</button>
+        <br>
+        <h3 id="message"></h3>
+    </form>
+    <script>
+        document.querySelector('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+            })
+            .then(response => response.text())
+            .then(data => {
+                if (data === "1") {
+                    const form = document.createElement("form");
+                    form.method = "POST";
+                    form.action = "/home";
+
+                    const input = document.createElement("input");
+                    input.name = "username";
+                    input.value = username;
+                    form.appendChild(input);
+                    document.body.appendChild(form);
+                    form.submit();
+                } else {
+                    document.getElementById('message').textContent = data;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
