@@ -3,28 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+    <title>Sign Up</title>  
 </head>
 <body>
-    <h1>Login</h1>
+    <h1>Sign Up</h1>
     <form>
         <label for="username">Username:</label>
         <input type="text" id="username" name="username" required>
         <br>
+        <span id="username-error" style="color: red;"></span>
+        <br>
         <label for="password">Password:</label>
         <input type="password" id="password" name="password" required>
         <br>
-        <button type="submit">Login</button>
-        <br>
-        <h3 id="message"></h3>
-        <a href="/signup">Don't have an account? Sign up here.</a>
+        <button type="submit">Sign Up</button>
     </form>
+ 
     <script>
         document.querySelector('form').addEventListener('submit', function(e) {
             e.preventDefault();
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
-            fetch('/login', {
+            const usernameError = document.getElementById('username-error').textContent;
+            if (usernameError) {
+                return;
+            }
+            fetch('/signup', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
@@ -34,12 +38,23 @@
             .then(response => response.text())
             .then(data => {
                 if (data === "1") {
-                    window.location.href = '/home';
+                    window.location.href = '/';
                 } else {
-                    document.getElementById('message').textContent = data;
+                    alert(data);
                 }
             });
         });
+        document.getElementById('username').addEventListener('input', function() {
+            const username = this.value;
+            fetch(`/check_username?username=${encodeURIComponent(username)}`)
+                .then(response => response.text())
+                .then(data => {
+                    if (data === "1") {
+                        document.getElementById('username-error').textContent = "Username already exists.";
+                    } else {
+                        document.getElementById('username-error').textContent = "";
+                    }
+                });
+        });
     </script>
 </body>
-</html>
