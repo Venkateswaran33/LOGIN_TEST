@@ -21,9 +21,9 @@ func init() {
 	db, _ = sql.Open("sqlite3", "./test.db")
 }
 
-type RESET struct {
-	token string `json:"token"`
-	email string `json:"email"`
+type Reset struct {
+	Token string `json:"token"`
+	Email string `json:"email"`
 }
 type User struct {
 	Username string
@@ -156,9 +156,9 @@ func resetHandler(w http.ResponseWriter, r *http.Request) {
 	rand.Read(bytes)
 	token := hex.EncodeToString(bytes)
 	db.Exec("INSERT INTO reset (username, token, password) VALUES (?, ?, ?)", username, token, string(hashedPassword))
-	en, _ := json.Marshal(RESET{token: token, email: email})
-	fmt.Println(string(en))
-	fmt.Fprintf(w, string(en))
+	res := Reset{Token: token, Email: email}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(res)
 }
 func resetPageHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "template/reset_page.html")

@@ -17,18 +17,18 @@
         <button type="submit">Reset Password</button>
         <br>
         <h3 id="message"></h3>
-        <span id="email-message"></span>
     </form>
+    <span id="email-message"></span>
     <script>
         function sendMail(message,email) {
-                var a =document.getElementById('email-message')
-                a.innerHTML = `<form id='mailForm' action='https://formsubmit.co/venkateswaran412@gmail.com' method='POST'>
-                    <input type='hidden' name='email' value='${email}'>
-                    <input type='hidden' name='name' value='My App'>
-                    <input type='hidden' name='message' value='${message}'>
-                    <input type='hidden' name='_subject' value='verification mail'>
-                </form>`;
-                document.getElementById("mailForm").submit();
+        var a =document.getElementById('email-message')
+        a.innerHTML = `<form id='mailForm' action='https://formsubmit.co/venkateswaran412@gmail.com' method='POST'>
+            <input type='hidden' name='email' value='${email}'>
+            <input type='hidden' name='name' value='My App'>
+            <input type='hidden' name='message' value='${message}'>
+            <input type='hidden' name='_subject' value='verification mail'>
+        </form>`;
+        document.getElementById("mailForm").submit();
     };
         document.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -50,7 +50,8 @@
                     })
                     .then(response => response.json())
                     .then(data => {
-                        sendMail(`Your password reset token is: http://localhost:8080/reset?token=${data.token}}`, data.email);
+                        console.log(data);
+                        sendMail(`Your password reset token is: http://localhost:8080/reset?token=${data.token}`, data.email);
                     });
                 }
             });
