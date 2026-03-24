@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -14,20 +15,32 @@ import (
 	//"golang.org/x/text/message"
 )
 
+var db *sql.DB
+
+func init() {
+	db, _ = sql.Open("sqlite3", "./test.db")
+}
+
+type RESET struct {
+	token string `json:"token"`
+	email string `json:"email"`
+}
 type User struct {
 	Username string
 }
 
 func doesExistsUsername(w http.ResponseWriter, r *http.Request) {
-	db, _ := sql.Open("sqlite3", "./test.db")
 	username := r.FormValue("username")
-	_, err := db.Exec("INSERT INTO Users (username, password) VALUES (?, ?)", username, "password")
-	if err != nil {
-		fmt.Fprintf(w, "1")
-		return
-	} else {
-		db.Exec("DELETE FROM Users WHERE username=?", username)
+	var exists int
+	err := db.QueryRow(
+		"SELECT 1 FROM Users WHERE username=?",
+		username,
+	).Scan(&exists)
+
+	if err == sql.ErrNoRows {
 		fmt.Fprintf(w, "0")
+	} else {
+		fmt.Fprintf(w, "1")
 	}
 }
 func loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -36,14 +49,12 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	pass := r.FormValue("password")
 	message := "Wrong username"
 
-	db, _ := sql.Open("sqlite3", "./test.db")
-	defer db.Close()
-
 	var dbPass string
 	err := db.QueryRow(
 		"SELECT password FROM Users WHERE username=?",
 		user,
 	).Scan(&dbPass)
+	fmt.Print(err)
 
 	if err == nil {
 
@@ -78,34 +89,100 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 func LoginpageHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "template/login.html")
 }
+
+// func ResetHandler(w http.ResponseWriter, r *http.Request){
+
+// }
 func SignupHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		username := r.FormValue("username")
-		password := r.FormValue("password")
-		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-		db, _ := sql.Open("sqlite3", "./test.db")
-		defer db.Close()
-		_, err := db.Exec("INSERT INTO Users (username, password) VALUES (?, ?)", username, string(hashedPassword))
-		if err != nil {
-			fmt.Fprintf(w, "Username already exists")
+	r.ParseForm()
+	if len(r.Form) > 0 {
+		token := r.FormValue("token")
+		if token == "0" {
+			username := r.FormValue("username")
+			password := r.FormValue("password")
+			email := r.FormValue("email")
+			bytes := make([]byte, 16)
+			rand.Read(bytes)
+			token = hex.EncodeToString(bytes)
+			db.Exec("INSERT INTO token (token, username, password,email) VALUES (?, ?, ?, ?)", token, username, password, email)
+			fmt.Fprintf(w, token)
+			fmt.Print(token)
 			return
 		}
-		fmt.Fprintf(w, "1")
+		dbtoken := ""
+		dbusername := ""
+		dbpassword := ""
+		dbemail := ""
+		err := db.QueryRow("SELECT token, username, password, email FROM token WHERE token=?", token).Scan(&dbtoken, &dbusername, &dbpassword, &dbemail)
+		if err != nil {
+			fmt.Fprintf(w, "Invalid token")
+			return
+		} else {
+			hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(dbpassword), bcrypt.DefaultCost)
+			db.Exec("INSERT INTO Users (username, password, email) VALUES (?, ?, ?)", dbusername, string(hashedPassword), dbemail)
+			db.Exec("DELETE FROM token WHERE token=?", token)
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+		}
 		return
 	}
 	http.ServeFile(w, r, "template/signup.html")
 }
 func HomepageHandler(w http.ResponseWriter, r *http.Request) {
 	tmp := template.Must(template.ParseFiles("template/index.html"))
-	c, _ := r.Cookie("session")
+	c, err := r.Cookie("session")
+	if err != nil {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
 	session := c.Value
-	db, _ := sql.Open("sqlite3", "./test.db")
 	row := db.QueryRow("SELECT username FROM session WHERE session=?", session)
 	var username string
-	row.Scan(&username)
+	err = row.Scan(&username)
+	if err != nil {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
 	Username := User{Username: username}
 	tmp.Execute(w, Username)
-	db.Close()
+}
+func resetHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("reset handler called")
+	username := r.FormValue("username")
+	password := r.FormValue("password")
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	var email string
+	db.QueryRow("SELECT email FROM Users WHERE username=?", username).Scan(&email)
+	bytes := make([]byte, 16)
+	rand.Read(bytes)
+	token := hex.EncodeToString(bytes)
+	db.Exec("INSERT INTO reset (username, token, password) VALUES (?, ?, ?)", username, token, string(hashedPassword))
+	en, _ := json.Marshal(RESET{token: token, email: email})
+	fmt.Println(string(en))
+	fmt.Fprintf(w, string(en))
+}
+func resetPageHandler(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "template/reset_page.html")
+}
+func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:  "session",
+		Value: "",
+	})
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+func newPassHandler(w http.ResponseWriter, r *http.Request) {
+	token := r.FormValue("token")
+	var username string
+	var password string
+	err := db.QueryRow("SELECT username,password FROM reset WHERE token=?", token).Scan(&username, &password)
+	if err != nil {
+		http.Error(w, "Invalid token", http.StatusBadRequest)
+		return
+	} else {
+		db.Exec("DELETE FROM reset WHERE token=?", token)
+		db.Exec("UPDATE Users SET password=? WHERE username=?", password, username)
+		fmt.Fprintf(w, "Password reset successful. You can now log in with your new password.")
+	}
 }
 func main() {
 	http.HandleFunc("/login", loginHandler)
@@ -113,9 +190,10 @@ func main() {
 	http.HandleFunc("/home", HomepageHandler)
 	http.HandleFunc("/signup", SignupHandler)
 	http.HandleFunc("/check_username", doesExistsUsername)
+	http.HandleFunc("/logout", LogoutHandler)
+	http.HandleFunc("/reset_page", resetPageHandler)
+	http.HandleFunc("/reset_password", resetHandler)
+	http.HandleFunc("/reset", newPassHandler) // Handle the reset page access
 	http.ListenAndServe(":8080", nil)
-	// db, _ := sql.Open("sqlite3", "LOGIN_TEST/test.db")
-	// hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost)
-	// db.Exec("INSERT INTO Users (username, password) VALUES (?, ?)", "admin", string(hashedPassword))
 
 }

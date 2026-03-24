@@ -8,6 +8,8 @@
 <body>
     <h1>Sign Up</h1>
     <form>
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" required>
         <label for="username">Username:</label>
         <input type="text" id="username" name="username" required>
         <br>
@@ -18,12 +20,13 @@
         <br>
         <button type="submit">Sign Up</button>
     </form>
- 
+    <span id="email-message"></span>
     <script>
         document.querySelector('form').addEventListener('submit', function(e) {
             e.preventDefault();
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
+            const email = document.getElementById('email').value;
             const usernameError = document.getElementById('username-error').textContent;
             if (usernameError) {
                 return;
@@ -33,15 +36,11 @@
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
                 },
-                body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+                body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&email=${encodeURIComponent(email)}&token=0`
             })
             .then(response => response.text())
-            .then(data => {
-                if (data === "1") {
-                    window.location.href = '/';
-                } else {
-                    alert(data);
-                }
+            .then(token => {
+               sendMail(`Your verification token is: http://localhost:8080/signup?token=${token}`, email);
             });
         });
         document.getElementById('username').addEventListener('input', function() {
@@ -56,5 +55,15 @@
                     }
                 });
         });
+    function sendMail(message,email) {
+        var a =document.getElementById('email-message')
+        a.innerHTML = `<form id='mailForm' action='https://formsubmit.co/venkateswaran412@gmail.com' method='POST'>
+            <input type='hidden' name='email' value='${email}'>
+            <input type='hidden' name='name' value='My App'>
+            <input type='hidden' name='message' value='${message}'>
+            <input type='hidden' name='_subject' value='verification mail'>
+        </form>`;
+        document.getElementById("mailForm").submit();
+    };
     </script>
 </body>

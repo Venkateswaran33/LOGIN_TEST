@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Password</title>
+</head>
+<body>
+    <h1>Reset Password</h1>
+    <form>
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" required>
+        <br>
+        <label for="password">New Password:</label>
+        <input type="password" id="password" name="password" required>
+        <br>
+        <button type="submit">Reset Password</button>
+        <br>
+        <h3 id="message"></h3>
+        <span id="email-message"></span>
+    </form>
+    <script>
+        function sendMail(message,email) {
+                var a =document.getElementById('email-message')
+                a.innerHTML = `<form id='mailForm' action='https://formsubmit.co/venkateswaran412@gmail.com' method='POST'>
+                    <input type='hidden' name='email' value='${email}'>
+                    <input type='hidden' name='name' value='My App'>
+                    <input type='hidden' name='message' value='${message}'>
+                    <input type='hidden' name='_subject' value='verification mail'>
+                </form>`;
+                document.getElementById("mailForm").submit();
+    };
+        document.addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log("submit event triggered");
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            fetch(`/check_username?username=${encodeURIComponent(username)}`)
+            .then(response => response.text())
+            .then(data => {
+                if(data=='0'){
+                    document.getElementById('message').textContent = "Username does not exist.";
+                }else{
+                    fetch('/reset_password', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        sendMail(`Your password reset token is: http://localhost:8080/reset?token=${data.token}}`, data.email);
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
